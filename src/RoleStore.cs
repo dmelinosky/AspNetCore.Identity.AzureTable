@@ -107,7 +107,7 @@ namespace Gobie74.AspNetCore.Identity.AzureTable
         {
             try
             {
-                Role role = await this.roleAccess.FindSingleByProperty("NormalizedName", normalizedRoleName);
+                Role role = await this.roleAccess.FindFirstRowWithProperty(Role.RowKeyIdentifier, "NormalizedName", normalizedRoleName);
 
                 return role;
             }

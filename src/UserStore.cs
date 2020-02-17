@@ -125,7 +125,7 @@ namespace Gobie74.AspNetCore.Identity.AzureTable
         /// <returns>The <see cref="T:System.Threading.Tasks.Task" /> that represents the asynchronous operation, containing the <see cref="T:Microsoft.AspNetCore.Identity.IdentityResult" /> of the creation operation.</returns>
         public async Task<IdentityResult> CreateAsync(User user, CancellationToken cancellationToken)
         {
-            IdentityResult result = null;
+            IdentityResult result;
 
             try
             {
@@ -151,7 +151,7 @@ namespace Gobie74.AspNetCore.Identity.AzureTable
         /// <returns>The <see cref="T:System.Threading.Tasks.Task" /> that represents the asynchronous operation, containing the <see cref="T:Microsoft.AspNetCore.Identity.IdentityResult" /> of the update operation.</returns>
         public async Task<IdentityResult> UpdateAsync(User user, CancellationToken cancellationToken)
         {
-            IdentityResult result = null;
+            IdentityResult result;
 
             try
             {
@@ -174,7 +174,7 @@ namespace Gobie74.AspNetCore.Identity.AzureTable
         /// <returns>The <see cref="T:System.Threading.Tasks.Task" /> that represents the asynchronous operation, containing the <see cref="T:Microsoft.AspNetCore.Identity.IdentityResult" /> of the update operation.</returns>
         public async Task<IdentityResult> DeleteAsync(User user, CancellationToken cancellationToken)
         {
-            IdentityResult result = null;
+            IdentityResult result;
 
             try
             {
@@ -221,7 +221,7 @@ namespace Gobie74.AspNetCore.Identity.AzureTable
         /// </returns>
         public async Task<User> FindByNameAsync(string normalizedUserName, CancellationToken cancellationToken)
         {
-            User user = await this.userAccess.FindSingleByProperty("UserName", normalizedUserName);
+            User user = await this.userAccess.FindFirstRowWithProperty(User.UserDataRowKey, "UserName", normalizedUserName);
 
             return user;
         }
@@ -423,7 +423,7 @@ namespace Gobie74.AspNetCore.Identity.AzureTable
         {
             try
             {
-                User found = await this.userAccess.FindSingleByProperty("NormalizedEmail", normalizedEmail);
+                User found = await this.userAccess.FindFirstRowWithProperty(User.UserDataRowKey, "NormalizedEmail", normalizedEmail);
 
                 return found;
             }
@@ -525,7 +525,7 @@ namespace Gobie74.AspNetCore.Identity.AzureTable
         {
             // TODO : Finish
             // 1. Find the RoleId
-            Role requestedRole = await this.roleAccess.Value.FindSingleByProperty("Name", roleName);
+            Role requestedRole = await this.roleAccess.Value.FindFirstRowWithProperty(Role.RowKeyIdentifier, "Name", roleName);
 
             if (requestedRole == null)
             {
@@ -573,9 +573,11 @@ namespace Gobie74.AspNetCore.Identity.AzureTable
         public Task<IList<string>> GetRolesAsync(User user, CancellationToken cancellationToken)
         {
             // TODO : Finish
-            IList<string> roles = new List<string>();
-
-            roles.Add("admin");
+            IList<string> roles = new List<string>
+            {
+                "admin",
+                "user",
+            };
 
             return Task.FromResult(roles);
         }
