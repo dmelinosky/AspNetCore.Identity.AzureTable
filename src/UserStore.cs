@@ -523,7 +523,6 @@ namespace Gobie74.AspNetCore.Identity.AzureTable
         /// <returns>The <see cref="Task" /> that represents the asynchronous operation.</returns>
         public async Task AddToRoleAsync(User user, string roleName, CancellationToken cancellationToken)
         {
-            // TODO : Finish
             // 1. Find the RoleId
             Role requestedRole = await this.roleAccess.Value.FindFirstRowWithProperty(Role.RowKeyIdentifier, "Name", roleName);
 
@@ -553,15 +552,26 @@ namespace Gobie74.AspNetCore.Identity.AzureTable
         /// <param name="roleName">The name of the role to remove.</param>
         /// <param name="cancellationToken">The <see cref="CancellationToken" /> used to propagate notifications that the operation should be canceled.</param>
         /// <returns>The <see cref="Task" /> that represents the asynchronous operation.</returns>
-        public Task RemoveFromRoleAsync(User user, string roleName, CancellationToken cancellationToken)
+        public async Task RemoveFromRoleAsync(User user, string roleName, CancellationToken cancellationToken)
         {
-            // TODO : Finish
-            // 1. Find the Role Id
+            // 1. Find the RoleId
+            Role requestedRole = await this.roleAccess.Value.FindFirstRowWithProperty(Role.RowKeyIdentifier, "Name", roleName);
 
-            // 2. Check if the user is already in the role
+            if (requestedRole == null)
+            {
+                return;
+            }
+
+            // 2. Check if the user already has the role
+            UserInRole existingRole = await this.userInRoleTableAccess.Value.GetSingleAsync(requestedRole.Id.ToString(), user.Id.ToString());
+
+            if (existingRole == null)
+            {
+                return;
+            }
 
             // 3. Remove the user from the role
-            return Task.FromResult(0);
+            await this.userInRoleTableAccess.Value.DeleteAsync(existingRole);
         }
 
         /// <summary>
@@ -592,15 +602,21 @@ namespace Gobie74.AspNetCore.Identity.AzureTable
         /// The <see cref="Task" /> that represents the asynchronous operation, containing a flag indicating whether the specified <paramref name="user" /> is
         /// a member of the named role.
         /// </returns>
-        public Task<bool> IsInRoleAsync(User user, string roleName, CancellationToken cancellationToken)
+        public async Task<bool> IsInRoleAsync(User user, string roleName, CancellationToken cancellationToken)
         {
-            // TODO : Finish
-            // 1. Get all the role ids the user is in
+            // 1. Find the RoleId
+            Role requestedRole = await this.roleAccess.Value.FindFirstRowWithProperty(Role.RowKeyIdentifier, "Name", roleName);
 
-            // 2. Get all the roles the user is in
+            if (requestedRole == null)
+            {
+                return false;
+            }
 
-            // 3. Compare the names of the roles against given roleName
-            return Task.FromResult(true);
+            // 2. Check if the user already has the role
+            UserInRole existingRole = await this.userInRoleTableAccess.Value.GetSingleAsync(requestedRole.Id.ToString(), user.Id.ToString());
+
+            // 3. If the user has the role, return true.
+            return existingRole != null;
         }
 
         /// <summary>
