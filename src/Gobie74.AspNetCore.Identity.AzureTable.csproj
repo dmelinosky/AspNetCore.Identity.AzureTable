@@ -10,8 +10,8 @@
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
         </PackageReference>
-        <PackageReference Include="gobie74.azurestorage" Version="1.0.5" />
-        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="3.1.1" />
+        <PackageReference Include="gobie74.azurestorage" Version="1.0.6" />
+        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="3.1.2" />
         <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.0.0">
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
             <PrivateAssets>all</PrivateAssets>

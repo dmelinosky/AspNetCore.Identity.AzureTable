@@ -6,6 +6,7 @@ namespace Gobie74.AspNetCore.Identity.AzureTable
 {
     using System;
     using System.Collections.Generic;
+    using System.Linq;
     using System.Threading;
     using System.Threading.Tasks;
 
@@ -580,16 +581,40 @@ namespace Gobie74.AspNetCore.Identity.AzureTable
         /// <param name="user">The user whose role names to retrieve.</param>
         /// <param name="cancellationToken">The <see cref="CancellationToken" /> used to propagate notifications that the operation should be canceled.</param>
         /// <returns>The <see cref="Task" /> that represents the asynchronous operation, containing a list of role names.</returns>
-        public Task<IList<string>> GetRolesAsync(User user, CancellationToken cancellationToken)
+        public async Task<IList<string>> GetRolesAsync(User user, CancellationToken cancellationToken)
         {
-            // TODO : Finish
-            IList<string> roles = new List<string>
-            {
-                "admin",
-                "user",
-            };
+            List<string> roleNames = new List<string>();
 
-            return Task.FromResult(roles);
+            List<Guid> roles = null;
+            try
+            {
+                IReadOnlyCollection<UserInRole> userInRoles = await this.userInRoleTableAccess.Value.FindAllByRowKey(user.Id.ToString());
+
+                roles = userInRoles.Select(x => x.Role).ToList();
+            }
+            catch (StorageException)
+            {
+                return roleNames;
+            }
+
+            foreach (var roleId in roles)
+            {
+                try
+                {
+                    Role theRole = await this.roleAccess.Value.GetSingleAsync(roleId.ToString(), Role.RowKeyIdentifier);
+
+                    if (theRole != null)
+                    {
+                        roleNames.Add(theRole.Name);
+                    }
+                }
+                catch (StorageException)
+                {
+                    continue;
+                }
+            }
+
+            return roleNames;
         }
 
         /// <summary>
@@ -627,17 +652,34 @@ namespace Gobie74.AspNetCore.Identity.AzureTable
         /// <returns>
         /// The <see cref="Task" /> that represents the asynchronous operation, containing a list of users who are in the named role.
         /// </returns>
-        public Task<IList<User>> GetUsersInRoleAsync(string roleName, CancellationToken cancellationToken)
+        public async Task<IList<User>> GetUsersInRoleAsync(string roleName, CancellationToken cancellationToken)
         {
             // TODO : Finish
             IList<User> users = new List<User>();
 
             // 1. Get the role id for the given role name.
+            Role role = await this.roleAccess.Value.FindFirstRowWithProperty(Role.RowKeyIdentifier, "Name", roleName);
+
+            if (role == null)
+            {
+                return users;
+            }
 
             // 2. Find all the UserInRole records for the role id
+            IReadOnlyCollection<UserInRole> usersInRole = await this.userInRoleTableAccess.Value.FindAllByPartitionKey(role.Id.ToString());
+
+            foreach (var userInRole in usersInRole)
+            {
+                User user = await this.userAccess.GetSingleAsync(userInRole.User.ToString(), User.UserDataRowKey);
+
+                if (user != null)
+                {
+                    users.Add(user);
+                }
+            }
 
             // 3. Get User records for all the user in role records
-            return Task.FromResult(users);
+            return users;
         }
 
         /// <summary>
