@@ -109,6 +109,9 @@ namespace Gobie74.AspNetCore.Identity.AzureTable
         /// <summary> Gets or sets a normalized user name, user store seems to want this?.</summary>
         public string UserNameNormalized { get; set; }
 
+        /// <summary> Gets or sets the users authenticator key. </summary>
+        public string AuthenticatorKey { get; set; }
+
         /// <inheritdoc/>
         public override string ToString() => $"{this.Id} - {this.UserName}";
     }

@@ -6,7 +6,9 @@ namespace Gobie74.AspNetCore.Identity.AzureTable
 {
     using System;
     using System.Collections.Generic;
+    using System.Collections.ObjectModel;
     using System.Linq;
+    using System.Security.Claims;
     using System.Threading;
     using System.Threading.Tasks;
 
@@ -20,11 +22,18 @@ namespace Gobie74.AspNetCore.Identity.AzureTable
     /// </summary>
     public class UserStore :
         IUserStore<User>,
-        IUserPasswordStore<User>,
-        IUserLockoutStore<User>,
-        IUserEmailStore<User>,
         IUserRoleStore<User>,
-        IUserPhoneNumberStore<User>
+        IUserClaimStore<User>,
+        IUserPasswordStore<User>,
+        IUserSecurityStampStore<User>,
+        IUserEmailStore<User>,
+        IUserPhoneNumberStore<User>,
+        //// IQueryableUserStore
+        //// IUserLoginStore<User>,
+        IUserTwoFactorStore<User>,
+        IUserLockoutStore<User>,
+        IUserAuthenticatorKeyStore<User>,
+        IUserTwoFactorRecoveryCodeStore<User>
     {
         private readonly UserTableAccess userAccess;
 
@@ -222,7 +231,7 @@ namespace Gobie74.AspNetCore.Identity.AzureTable
         /// </returns>
         public async Task<User> FindByNameAsync(string normalizedUserName, CancellationToken cancellationToken)
         {
-            User user = await this.userAccess.FindFirstRowWithProperty(User.UserDataRowKey, "UserName", normalizedUserName);
+            User user = await this.userAccess.FindFirstRowWithProperty(User.UserDataRowKey, "UserNameNormalized", normalizedUserName);
 
             return user;
         }
@@ -680,6 +689,192 @@ namespace Gobie74.AspNetCore.Identity.AzureTable
 
             // 3. Get User records for all the user in role records
             return users;
+        }
+
+        /// <summary>
+        /// Sets a flag indicating whether the specified <paramref name="user" /> has two factor authentication enabled or not,
+        /// as an asynchronous operation.
+        /// </summary>
+        /// <param name="user">The user whose two factor authentication enabled status should be set.</param>
+        /// <param name="enabled">A flag indicating whether the specified <paramref name="user" /> has two factor authentication enabled.</param>
+        /// <param name="cancellationToken">The <see cref="CancellationToken" /> used to propagate notifications that the operation should be canceled.</param>
+        /// <returns>The <see cref="Task" /> that represents the asynchronous operation.</returns>
+        public Task SetTwoFactorEnabledAsync(User user, bool enabled, CancellationToken cancellationToken)
+        {
+            user.TwoFactorEnabled = enabled;
+
+            return Task.CompletedTask;
+        }
+
+        /// <summary>
+        /// Returns a flag indicating whether the specified <paramref name="user" /> has two factor authentication enabled or not,
+        /// as an asynchronous operation.
+        /// </summary>
+        /// <param name="user">The user whose two factor authentication enabled status should be set.</param>
+        /// <param name="cancellationToken">The <see cref="CancellationToken" /> used to propagate notifications that the operation should be canceled.</param>
+        /// <returns>
+        /// The <see cref="Task" /> that represents the asynchronous operation, containing a flag indicating whether the specified
+        /// <paramref name="user" /> has two factor authentication enabled or not.
+        /// </returns>
+        public Task<bool> GetTwoFactorEnabledAsync(User user, CancellationToken cancellationToken)
+        {
+            return Task.FromResult<bool>(user.TwoFactorEnabled);
+        }
+
+        /// <summary>
+        /// Sets the provided security <paramref name="stamp" /> for the specified <paramref name="user" />.
+        /// </summary>
+        /// <param name="user">The user whose security stamp should be set.</param>
+        /// <param name="stamp">The security stamp to set.</param>
+        /// <param name="cancellationToken">The <see cref="CancellationToken" /> used to propagate notifications that the operation should be canceled.</param>
+        /// <returns>The <see cref="Task" /> that represents the asynchronous operation.</returns>
+        public Task SetSecurityStampAsync(User user, string stamp, CancellationToken cancellationToken)
+        {
+            user.SecurityStamp = stamp;
+
+            return Task.CompletedTask;
+        }
+
+        /// <summary>
+        /// Get the security stamp for the specified <paramref name="user" />.
+        /// </summary>
+        /// <param name="user">The user whose security stamp should be set.</param>
+        /// <param name="cancellationToken">The <see cref="CancellationToken" /> used to propagate notifications that the operation should be canceled.</param>
+        /// <returns>The <see cref="Task" /> that represents the asynchronous operation, containing the security stamp for the specified <paramref name="user" />.</returns>
+        public Task<string> GetSecurityStampAsync(User user, CancellationToken cancellationToken)
+        {
+            return Task.FromResult<string>(user.SecurityStamp);
+        }
+
+        /// <summary>
+        /// Gets a list of <see cref="Claim" />s to be belonging to the specified <paramref name="user" /> as an asynchronous operation.
+        /// </summary>
+        /// <param name="user">The role whose claims to retrieve.</param>
+        /// <param name="cancellationToken">The <see cref="CancellationToken" /> used to propagate notifications that the operation should be canceled.</param>
+        /// <returns>
+        /// A <see cref="Task{TResult}" /> that represents the result of the asynchronous query, a list of <see cref="Claim" />s.
+        /// </returns>
+        public Task<IList<Claim>> GetClaimsAsync(User user, CancellationToken cancellationToken)
+        {
+            // TODO : reimplement correctly.
+            IList<Claim> claims = new List<Claim>();
+            claims.Add(new Claim("hello", "world"));
+
+            return Task.FromResult(claims);
+        }
+
+        /// <summary>
+        /// Add claims to a user as an asynchronous operation.
+        /// </summary>
+        /// <param name="user">The user to add the claim to.</param>
+        /// <param name="claims">The collection of <see cref="Claim" />s to add.</param>
+        /// <param name="cancellationToken">The <see cref="CancellationToken" /> used to propagate notifications that the operation should be canceled.</param>
+        /// <returns>The task object representing the asynchronous operation.</returns>
+        public Task AddClaimsAsync(User user, IEnumerable<Claim> claims, CancellationToken cancellationToken)
+        {
+            return Task.CompletedTask;
+        }
+
+        /// <summary>
+        /// Replaces the given <paramref name="claim" /> on the specified <paramref name="user" /> with the <paramref name="newClaim" />.
+        /// </summary>
+        /// <param name="user">The user to replace the claim on.</param>
+        /// <param name="claim">The claim to replace.</param>
+        /// <param name="newClaim">The new claim to replace the existing <paramref name="claim" /> with.</param>
+        /// <param name="cancellationToken">The <see cref="CancellationToken" /> used to propagate notifications that the operation should be canceled.</param>
+        /// <returns>The task object representing the asynchronous operation.</returns>
+        public Task ReplaceClaimAsync(User user, Claim claim, Claim newClaim, CancellationToken cancellationToken)
+        {
+            return Task.CompletedTask;
+        }
+
+        /// <summary>
+        /// Removes the specified <paramref name="claims" /> from the given <paramref name="user" />.
+        /// </summary>
+        /// <param name="user">The user to remove the specified <paramref name="claims" /> from.</param>
+        /// <param name="claims">A collection of <see cref="Claim" />s to remove.</param>
+        /// <param name="cancellationToken">The <see cref="CancellationToken" /> used to propagate notifications that the operation should be canceled.</param>
+        /// <returns>The task object representing the asynchronous operation.</returns>
+        public Task RemoveClaimsAsync(User user, IEnumerable<Claim> claims, CancellationToken cancellationToken)
+        {
+            return Task.CompletedTask;
+        }
+
+        /// <summary>
+        /// Returns a list of users who contain the specified <see cref="Claim" />.
+        /// </summary>
+        /// <param name="claim">The claim to look for.</param>
+        /// <param name="cancellationToken">The <see cref="CancellationToken" /> used to propagate notifications that the operation should be canceled.</param>
+        /// <returns>
+        /// A <see cref="System.Threading.Tasks.Task{TResult}" /> that represents the result of the asynchronous query, a list of Users who
+        /// contain the specified claim.
+        /// </returns>
+        public async Task<IList<User>> GetUsersForClaimAsync(Claim claim, CancellationToken cancellationToken)
+        {
+            var users = await this.userAccess.FindAllByRowKey("UserInfo");
+
+            return new ReadOnlyCollection<User>(users.ToList());
+        }
+
+        /// <summary>
+        /// Sets the authenticator key for the specified <paramref name="user" />.
+        /// </summary>
+        /// <param name="user">The user whose authenticator key should be set.</param>
+        /// <param name="key">The authenticator key to set.</param>
+        /// <param name="cancellationToken">The <see cref="CancellationToken" /> used to propagate notifications that the operation should be canceled.</param>
+        /// <returns>The <see cref="Task" /> that represents the asynchronous operation.</returns>
+        public Task SetAuthenticatorKeyAsync(User user, string key, CancellationToken cancellationToken)
+        {
+            user.AuthenticatorKey = key;
+
+            return Task.CompletedTask;
+        }
+
+        /// <summary>
+        /// Get the authenticator key for the specified <paramref name="user" />.
+        /// </summary>
+        /// <param name="user">The user whose security stamp should be set.</param>
+        /// <param name="cancellationToken">The <see cref="CancellationToken" /> used to propagate notifications that the operation should be canceled.</param>
+        /// <returns>The <see cref="Task" /> that represents the asynchronous operation, containing the security stamp for the specified <paramref name="user" />.</returns>
+        public Task<string> GetAuthenticatorKeyAsync(User user, CancellationToken cancellationToken)
+        {
+            return Task.FromResult<string>(user.AuthenticatorKey);
+        }
+
+        /// <summary>
+        /// Updates the recovery codes for the user while invalidating any previous recovery codes.
+        /// </summary>
+        /// <param name="user">The user to store new recovery codes for.</param>
+        /// <param name="recoveryCodes">The new recovery codes for the user.</param>
+        /// <param name="cancellationToken">The <see cref="CancellationToken" /> used to propagate notifications that the operation should be canceled.</param>
+        /// <returns>A task that represents the asynchronous operation.</returns>
+        public Task ReplaceCodesAsync(User user, IEnumerable<string> recoveryCodes, CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
+        }
+
+        /// <summary>
+        /// Returns whether a recovery code is valid for a user. Note: recovery codes are only valid
+        /// once, and will be invalid after use.
+        /// </summary>
+        /// <param name="user">The user who owns the recovery code.</param>
+        /// <param name="code">The recovery code to use.</param>
+        /// <param name="cancellationToken">The <see cref="CancellationToken" /> used to propagate notifications that the operation should be canceled.</param>
+        /// <returns>True if the recovery code was found for the user.</returns>
+        public Task<bool> RedeemCodeAsync(User user, string code, CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
+        }
+
+        /// <summary>
+        /// Returns how many recovery code are still valid for a user.
+        /// </summary>
+        /// <param name="user">The user who owns the recovery code.</param>
+        /// <param name="cancellationToken">The <see cref="CancellationToken" /> used to propagate notifications that the operation should be canceled.</param>
+        /// <returns>The number of valid recovery codes for the user.</returns>
+        public Task<int> CountCodesAsync(User user, CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
         }
 
         /// <summary>
