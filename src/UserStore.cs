@@ -625,6 +625,12 @@ namespace Gobie74.AspNetCore.Identity.AzureTable
                         roleNames.Add(theRole.Name);
                     }
                 }
+                catch (NotFoundException nfe)
+                {
+                    this.Logger?.LogError(nfe, $"Error while looking for role {roleId.ToString()}");
+
+                    continue;
+                }
                 catch (StorageException)
                 {
                     continue;
