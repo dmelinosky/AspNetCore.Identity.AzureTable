@@ -12,7 +12,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
 using Gobie74.AspNetCore.Identity.AzureTable;
-using web.Application;
+using web.Application.Email;
 using Microsoft.AspNetCore.Identity.UI.Services;
 
 namespace web
@@ -39,8 +39,11 @@ namespace web
             });
 
             services.AddTransient<IEmailSender, EmailSender>();
+            services.Configure<EmailSenderOptions>(this.Configuration);
+
             services.AddIdentity<User, Role>()
-                .AddDefaultTokenProviders();
+                .AddDefaultTokenProviders()
+                .AddDefaultUI();
 
             services.AddControllersWithViews();
             services.AddRazorPages()
