@@ -41,6 +41,8 @@ namespace Gobie74.AspNetCore.Identity.AzureTable
 
         private readonly Lazy<UserInRoleTableAccess> userInRoleTableAccess;
 
+        private readonly Lazy<UserRecoveryCodeTableAccess> userRecoveryCodeTableAccess;
+
         /// <summary>Initializes a new instance of the <see cref="UserStore"/> class.</summary>
         /// <param name="connectionString">The connection string.</param>
         /// <param name="tableName">The default table name.</param>
@@ -54,6 +56,8 @@ namespace Gobie74.AspNetCore.Identity.AzureTable
             this.roleAccess = new Lazy<RoleTableAccess>(() => new RoleTableAccess(connectionString, "role"));
 
             this.userInRoleTableAccess = new Lazy<UserInRoleTableAccess>(() => new UserInRoleTableAccess(connectionString, "role"));
+
+            this.userRecoveryCodeTableAccess = new Lazy<UserRecoveryCodeTableAccess>(() => new UserRecoveryCodeTableAccess(connectionString, "recoverycodes"));
         }
 
         private ILogger<UserStore> Logger { get; }
@@ -848,9 +852,21 @@ namespace Gobie74.AspNetCore.Identity.AzureTable
         /// <param name="recoveryCodes">The new recovery codes for the user.</param>
         /// <param name="cancellationToken">The <see cref="CancellationToken" /> used to propagate notifications that the operation should be canceled.</param>
         /// <returns>A task that represents the asynchronous operation.</returns>
-        public Task ReplaceCodesAsync(User user, IEnumerable<string> recoveryCodes, CancellationToken cancellationToken)
+        public async Task ReplaceCodesAsync(User user, IEnumerable<string> recoveryCodes, CancellationToken cancellationToken)
         {
-            throw new NotImplementedException();
+            var existingCodes = await this.userRecoveryCodeTableAccess.Value.FindAllByPartitionKey(user.PartitionKey);
+
+            foreach (var code in existingCodes)
+            {
+                await this.userRecoveryCodeTableAccess.Value.DeleteAsync(code);
+            }
+
+            foreach (string newCode in recoveryCodes)
+            {
+                UserRecoveryCode recoveryCode = new UserRecoveryCode(user.PartitionKey, newCode) { AddedOn = DateTime.Now };
+
+                await this.userRecoveryCodeTableAccess.Value.AddAsync(recoveryCode);
+            }
         }
 
         /// <summary>
@@ -861,9 +877,27 @@ namespace Gobie74.AspNetCore.Identity.AzureTable
         /// <param name="code">The recovery code to use.</param>
         /// <param name="cancellationToken">The <see cref="CancellationToken" /> used to propagate notifications that the operation should be canceled.</param>
         /// <returns>True if the recovery code was found for the user.</returns>
-        public Task<bool> RedeemCodeAsync(User user, string code, CancellationToken cancellationToken)
+        public async Task<bool> RedeemCodeAsync(User user, string code, CancellationToken cancellationToken)
         {
-            throw new NotImplementedException();
+            UserRecoveryCode existingCode;
+
+            try
+            {
+                existingCode = await this.userRecoveryCodeTableAccess.Value.GetSingleAsync(user.PartitionKey, code);
+
+                if (existingCode == null)
+                {
+                    return false;
+                }
+            }
+            catch (NotFoundException)
+            {
+                return false;
+            }
+
+            await this.userRecoveryCodeTableAccess.Value.DeleteAsync(existingCode);
+
+            return true;
         }
 
         /// <summary>
@@ -872,9 +906,25 @@ namespace Gobie74.AspNetCore.Identity.AzureTable
         /// <param name="user">The user who owns the recovery code.</param>
         /// <param name="cancellationToken">The <see cref="CancellationToken" /> used to propagate notifications that the operation should be canceled.</param>
         /// <returns>The number of valid recovery codes for the user.</returns>
-        public Task<int> CountCodesAsync(User user, CancellationToken cancellationToken)
+        public async Task<int> CountCodesAsync(User user, CancellationToken cancellationToken)
         {
-            throw new NotImplementedException();
+            try
+            {
+                var codesForUser = await this.userRecoveryCodeTableAccess.Value.FindAllByPartitionKey(user.PartitionKey);
+
+                if (codesForUser != null)
+                {
+                    return codesForUser.Count();
+                }
+                else
+                {
+                    return 0;
+                }
+            }
+            catch (NotFoundException)
+            {
+                return 0;
+            }
         }
 
         /// <summary>
