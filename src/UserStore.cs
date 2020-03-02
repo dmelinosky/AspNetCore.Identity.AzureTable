@@ -43,6 +43,8 @@ namespace Gobie74.AspNetCore.Identity.AzureTable
 
         private readonly Lazy<UserRecoveryCodeTableAccess> userRecoveryCodeTableAccess;
 
+        private readonly Lazy<UserExternalLoginTableAccess> userExternalLoginTableAccess;
+
         /// <summary>Initializes a new instance of the <see cref="UserStore"/> class.</summary>
         /// <param name="connectionString">The connection string.</param>
         /// <param name="tableName">The default table name.</param>
@@ -58,6 +60,8 @@ namespace Gobie74.AspNetCore.Identity.AzureTable
             this.userInRoleTableAccess = new Lazy<UserInRoleTableAccess>(() => new UserInRoleTableAccess(connectionString, "role"));
 
             this.userRecoveryCodeTableAccess = new Lazy<UserRecoveryCodeTableAccess>(() => new UserRecoveryCodeTableAccess(connectionString, "recoverycodes"));
+
+            this.userExternalLoginTableAccess = new Lazy<UserExternalLoginTableAccess>(() => new UserExternalLoginTableAccess(connectionString, "externallogins"));
         }
 
         private ILogger<UserStore> Logger { get; }
@@ -934,9 +938,18 @@ namespace Gobie74.AspNetCore.Identity.AzureTable
         /// <param name="login">The external <see cref="UserLoginInfo" /> to add to the specified <paramref name="user" />.</param>
         /// <param name="cancellationToken">The <see cref="CancellationToken" /> used to propagate notifications that the operation should be canceled.</param>
         /// <returns>The <see cref="Task" /> that represents the asynchronous operation.</returns>
-        public Task AddLoginAsync(User user, UserLoginInfo login, CancellationToken cancellationToken)
+        public async Task AddLoginAsync(User user, UserLoginInfo login, CancellationToken cancellationToken)
         {
-            throw new NotImplementedException();
+            UserExternalLogin externalLogin = new UserExternalLogin(user.PartitionKey, login.LoginProvider) { DisplayName = login.ProviderDisplayName, ProviderKey = login.ProviderKey };
+
+            try
+            {
+                await this.userExternalLoginTableAccess.Value.AddAsync(externalLogin);
+            }
+            catch (StorageException se)
+            {
+                this.Logger?.LogError(se, "Error while adding external login");
+            }
         }
 
         /// <summary>
@@ -948,9 +961,21 @@ namespace Gobie74.AspNetCore.Identity.AzureTable
         /// <param name="providerKey">The key given by the external login provider for the specified user.</param>
         /// <param name="cancellationToken">The <see cref="CancellationToken" /> used to propagate notifications that the operation should be canceled.</param>
         /// <returns>The <see cref="Task" /> that represents the asynchronous operation.</returns>
-        public Task RemoveLoginAsync(User user, string loginProvider, string providerKey, CancellationToken cancellationToken)
+        public async Task RemoveLoginAsync(User user, string loginProvider, string providerKey, CancellationToken cancellationToken)
         {
-            throw new NotImplementedException();
+            try
+            {
+                UserExternalLogin found = await this.userExternalLoginTableAccess.Value.GetSingleAsync(user.PartitionKey, loginProvider);
+
+                if (found != null && string.Equals(providerKey, found.ProviderKey, StringComparison.OrdinalIgnoreCase))
+                {
+                    await this.userExternalLoginTableAccess.Value.DeleteAsync(found);
+                }
+            }
+            catch (StorageException se)
+            {
+                this.Logger?.LogError(se, "Error while removing external login");
+            }
         }
 
         /// <summary>
@@ -961,9 +986,27 @@ namespace Gobie74.AspNetCore.Identity.AzureTable
         /// <returns>
         /// The <see cref="Task" /> for the asynchronous operation, containing a list of <see cref="UserLoginInfo" /> for the specified <paramref name="user" />, if any.
         /// </returns>
-        public Task<IList<UserLoginInfo>> GetLoginsAsync(User user, CancellationToken cancellationToken)
+        public async Task<IList<UserLoginInfo>> GetLoginsAsync(User user, CancellationToken cancellationToken)
         {
-            throw new NotImplementedException();
+            IList<UserLoginInfo> infos = new List<UserLoginInfo>();
+
+            try
+            {
+                var items = await this.userExternalLoginTableAccess.Value.FindAllByPartitionKey(user.PartitionKey);
+
+                foreach (var item in items)
+                {
+                    UserLoginInfo aLogin = new UserLoginInfo(item.RowKey, item.ProviderKey, item.DisplayName);
+
+                    infos.Add(aLogin);
+                }
+            }
+            catch (StorageException se)
+            {
+                this.Logger?.LogError(se, "Error while getting all logins for user");
+            }
+
+            return infos;
         }
 
         /// <summary>
@@ -975,9 +1018,25 @@ namespace Gobie74.AspNetCore.Identity.AzureTable
         /// <returns>
         /// The <see cref="Task" /> for the asynchronous operation, containing the user, if any which matched the specified login provider and key.
         /// </returns>
-        public Task<User> FindByLoginAsync(string loginProvider, string providerKey, CancellationToken cancellationToken)
+        public async Task<User> FindByLoginAsync(string loginProvider, string providerKey, CancellationToken cancellationToken)
         {
-            throw new NotImplementedException();
+            User foundUser = null;
+
+            try
+            {
+                UserExternalLogin foundLogin = await this.userExternalLoginTableAccess.Value.FindFirstRowWithProperty(loginProvider, "ProviderKey", providerKey);
+
+                if (foundLogin != null)
+                {
+                    foundUser = await this.userAccess.GetSingleAsync(foundLogin.PartitionKey, User.UserDataRowKey);
+                }
+            }
+            catch (StorageException se)
+            {
+                this.Logger?.LogError(se, "Error while finding user by login");
+            }
+
+            return foundUser;
         }
 
         /// <summary>
