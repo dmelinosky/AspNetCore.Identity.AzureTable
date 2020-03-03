@@ -45,6 +45,8 @@ namespace Gobie74.AspNetCore.Identity.AzureTable
 
         private readonly Lazy<UserExternalLoginTableAccess> userExternalLoginTableAccess;
 
+        private readonly Lazy<UserClaimTableAccess> userClaimTableAccess;
+
         /// <summary>Initializes a new instance of the <see cref="UserStore"/> class.</summary>
         /// <param name="connectionString">The connection string.</param>
         /// <param name="tableName">The default table name.</param>
@@ -62,6 +64,8 @@ namespace Gobie74.AspNetCore.Identity.AzureTable
             this.userRecoveryCodeTableAccess = new Lazy<UserRecoveryCodeTableAccess>(() => new UserRecoveryCodeTableAccess(connectionString, "recoverycodes"));
 
             this.userExternalLoginTableAccess = new Lazy<UserExternalLoginTableAccess>(() => new UserExternalLoginTableAccess(connectionString, "externallogins"));
+
+            this.userClaimTableAccess = new Lazy<UserClaimTableAccess>(() => new UserClaimTableAccess(connectionString, "claims"));
         }
 
         private ILogger<UserStore> Logger { get; }
@@ -768,13 +772,31 @@ namespace Gobie74.AspNetCore.Identity.AzureTable
         /// <returns>
         /// A <see cref="Task{TResult}" /> that represents the result of the asynchronous query, a list of <see cref="Claim" />s.
         /// </returns>
-        public Task<IList<Claim>> GetClaimsAsync(User user, CancellationToken cancellationToken)
+        public async Task<IList<Claim>> GetClaimsAsync(User user, CancellationToken cancellationToken)
         {
-            // TODO : reimplement correctly.
             IList<Claim> claims = new List<Claim>();
-            claims.Add(new Claim("hello", "world"));
 
-            return Task.FromResult(claims);
+            try
+            {
+                var userClaims = await this.userClaimTableAccess.Value.FindAllByPartitionKey(user.PartitionKey);
+
+                foreach (var userClaim in userClaims)
+                {
+                    Claim aClaim = new Claim(userClaim.RowKey, userClaim.Value);
+
+                    claims.Add(aClaim);
+                }
+            }
+            catch (NotFoundException nfe)
+            {
+                this.Logger?.LogError(nfe, $"Error while getting claims for user {user.PartitionKey}.");
+            }
+            catch (StorageException se)
+            {
+                this.Logger?.LogError(se, $"Error while getting claims for user {user.PartitionKey}.");
+            }
+
+            return claims;
         }
 
         /// <summary>
@@ -784,9 +806,21 @@ namespace Gobie74.AspNetCore.Identity.AzureTable
         /// <param name="claims">The collection of <see cref="Claim" />s to add.</param>
         /// <param name="cancellationToken">The <see cref="CancellationToken" /> used to propagate notifications that the operation should be canceled.</param>
         /// <returns>The task object representing the asynchronous operation.</returns>
-        public Task AddClaimsAsync(User user, IEnumerable<Claim> claims, CancellationToken cancellationToken)
+        public async Task AddClaimsAsync(User user, IEnumerable<Claim> claims, CancellationToken cancellationToken)
         {
-            return Task.CompletedTask;
+            foreach (var claim in claims)
+            {
+                try
+                {
+                    UserClaim userClaim = new UserClaim(user.PartitionKey, claim.Type) { Value = claim.Value };
+
+                    await this.userClaimTableAccess.Value.AddAsync(userClaim);
+                }
+                catch (StorageException se)
+                {
+                    this.Logger?.LogError(se, $"Error while adding claim {claim.Type} to user {user.PartitionKey}.");
+                }
+            }
         }
 
         /// <summary>
@@ -797,9 +831,27 @@ namespace Gobie74.AspNetCore.Identity.AzureTable
         /// <param name="newClaim">The new claim to replace the existing <paramref name="claim" /> with.</param>
         /// <param name="cancellationToken">The <see cref="CancellationToken" /> used to propagate notifications that the operation should be canceled.</param>
         /// <returns>The task object representing the asynchronous operation.</returns>
-        public Task ReplaceClaimAsync(User user, Claim claim, Claim newClaim, CancellationToken cancellationToken)
+        public async Task ReplaceClaimAsync(User user, Claim claim, Claim newClaim, CancellationToken cancellationToken)
         {
-            return Task.CompletedTask;
+            if (claim.Type == newClaim.Type)
+            {
+                try
+                {
+                    UserClaim targetClaim = await this.userClaimTableAccess.Value.GetSingleAsync(user.PartitionKey, claim.Type);
+
+                    targetClaim.Value = newClaim.Value;
+
+                    await this.userClaimTableAccess.Value.InsertOrReplaceAsync(targetClaim);
+                }
+                catch (NotFoundException nfe)
+                {
+                    this.Logger?.LogError(nfe, $"Error while replacing claim for user {user.PartitionKey}, claim {claim.Type} was not found.");
+                }
+                catch (StorageException se)
+                {
+                    this.Logger?.LogError(se, $"Error while replacing claim for user {user.PartitionKey}.");
+                }
+            }
         }
 
         /// <summary>
@@ -809,9 +861,25 @@ namespace Gobie74.AspNetCore.Identity.AzureTable
         /// <param name="claims">A collection of <see cref="Claim" />s to remove.</param>
         /// <param name="cancellationToken">The <see cref="CancellationToken" /> used to propagate notifications that the operation should be canceled.</param>
         /// <returns>The task object representing the asynchronous operation.</returns>
-        public Task RemoveClaimsAsync(User user, IEnumerable<Claim> claims, CancellationToken cancellationToken)
+        public async Task RemoveClaimsAsync(User user, IEnumerable<Claim> claims, CancellationToken cancellationToken)
         {
-            return Task.CompletedTask;
+            foreach (var claim in claims)
+            {
+                try
+                {
+                    UserClaim foundClaim = await this.userClaimTableAccess.Value.GetSingleAsync(user.PartitionKey, claim.Type);
+
+                    await this.userClaimTableAccess.Value.DeleteAsync(foundClaim);
+                }
+                catch (NotFoundException nfe)
+                {
+                    this.Logger?.LogError(nfe, $"Error while removing claim {claim.Type} on user {user.PartitionKey}, not found.");
+                }
+                catch (StorageException se)
+                {
+                    this.Logger?.LogError(se, $"Error while removing claim {claim.Type} on user {user.PartitionKey}.");
+                }
+            }
         }
 
         /// <summary>
