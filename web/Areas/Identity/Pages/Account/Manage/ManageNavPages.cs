@@ -20,6 +20,8 @@ namespace web.Areas.Identity.Pages.Account.Manage
 
         public static string TwoFactorAuthentication => "TwoFactorAuthentication";
 
+        public static string CurrentSessions => "CurrentSessions";
+
         public static string IndexNavClass(ViewContext viewContext) => PageNavClass(viewContext, Index);
 
         public static string EmailNavClass(ViewContext viewContext) => PageNavClass(viewContext, Email);
@@ -31,6 +33,8 @@ namespace web.Areas.Identity.Pages.Account.Manage
         public static string PersonalDataNavClass(ViewContext viewContext) => PageNavClass(viewContext, PersonalData);
 
         public static string TwoFactorAuthenticationNavClass(ViewContext viewContext) => PageNavClass(viewContext, TwoFactorAuthentication);
+
+        public static string CurrentSessionsNavClass(ViewContext viewContext) => PageNavClass(viewContext, CurrentSessions);
 
         private static string PageNavClass(ViewContext viewContext, string page)
         {

@@ -39,9 +39,11 @@ namespace web.Controllers
 
             // 2. If credential.response.userHandle is present, verify that the user identified by this value is the owner of the public key credential identified by credential.id.
             // 3. Using credential’s id attribute (or the corresponding rawId, if base64url encoding is inappropriate for your use case), look up the corresponding credential public key.
-            var user = Users.First(x => x.CredentialId == model.RawId);
-            
-            if (!string.IsNullOrEmpty(model.Response.UserHandle) && model.Response.UserHandle != user.Username) throw new Exception("Incorrect user handle returned");
+            //var user = Users.First(x => x.CredentialId == model.RawId);
+            Gobie74.AspNetCore.Identity.AzureTable.User user = new Gobie74.AspNetCore.Identity.AzureTable.User();
+
+
+            if (!string.IsNullOrEmpty(model.Response.UserHandle) && model.Response.UserHandle != user.UserName) throw new Exception("Incorrect user handle returned");
 
             // 4. Let cData, aData and sig denote the value of credential’s response's clientDataJSON, authenticatorData, and signature respectively.
             var cData = model.Response.ClientDataJson;
@@ -115,8 +117,8 @@ namespace web.Controllers
                 Curve = ECCurve.NamedCurves.nistP256,
                 Q = new ECPoint
                 {
-                    X = Base64Url.Decode(user.PublicKey.X),
-                    Y = Base64Url.Decode(user.PublicKey.Y)
+                    //X = Base64Url.Decode(user.PublicKey.X),
+                    //Y = Base64Url.Decode(user.PublicKey.Y)
                 }
             });
             
@@ -125,16 +127,16 @@ namespace web.Controllers
             if (isValid)
             {
                 // 17. the signature counter value adata.signCount is nonzero or the value stored in conjunction with credential’s id attribute is nonzero
-                if (user.Counter < counter)
-                {
-                    user.Counter = Convert.ToInt32(counter);
-                    HttpContext.SignInAsync("cookie",
-                        new ClaimsPrincipal(new ClaimsIdentity(new List<Claim> {new Claim("name", user.Username)}, "cookie")));
+                //if (user.Counter < counter)
+                //{
+                //    user.Counter = Convert.ToInt32(counter);
+                //    HttpContext.SignInAsync("cookie",
+                //        new ClaimsPrincipal(new ClaimsIdentity(new List<Claim> {new Claim("name", user.UserName)}, "cookie")));
 
-                    var returnUrl = (string) data["returnUrl"];
-                    if (returnUrl[0] == '/') return Redirect(returnUrl);
-                    return RedirectToAction("Index", "Home");
-                }
+                //    var returnUrl = (string) data["returnUrl"];
+                //    if (returnUrl[0] == '/') return Redirect(returnUrl);
+                //    return RedirectToAction("Index", "Home");
+                //}
 
                 throw new Exception("Possible cloned authenticator");
             }
