@@ -39,7 +39,8 @@ namespace web
             });
 
             services.AddTransient<IEmailSender, EmailSender>();
-            services.Configure<EmailSenderOptions>(this.Configuration);
+
+            services.Configure<EmailSenderOptions>(this.Configuration.GetSection(EmailSenderOptions.EmailSender));
 
             services.AddIdentity<User, Role>()
                 .AddDefaultTokenProviders()
