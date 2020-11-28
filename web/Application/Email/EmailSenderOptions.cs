@@ -1,14 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-
-namespace web.Application.Email
+﻿namespace web.Application.Email
 {
     public class EmailSenderOptions
     {
-        public string SendGridUser { get; set; }
+        public const string EmailSender = "EmailSender";
 
-        public string SendGridKey { get; set; }
+        public string User { get; set; }
+
+        public string Key { get; set; }
     }
 }
